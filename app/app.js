@@ -95,8 +95,14 @@ class FPLLiveTable {
   }
 
   loadStoredLeague() {
+    // Use default league ID if configured, otherwise check localStorage
+    const defaultId = CONFIG.DEFAULT_LEAGUE_ID;
     const storedId = localStorage.getItem('fpl_league_id');
-    if (storedId) {
+    
+    if (defaultId) {
+      this.el.leagueIdInput.value = defaultId;
+      this.loadLeague();
+    } else if (storedId) {
       this.el.leagueIdInput.value = storedId;
       this.loadLeague();
     }

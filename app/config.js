@@ -38,8 +38,8 @@ const CONFIG = {
   // Maximum concurrent API requests
   MAX_CONCURRENT_REQUESTS: 10,
   
-  // Default league ID (optional, user can override)
-  DEFAULT_LEAGUE_ID: null,
+  // Default league ID - auto-loads on startup
+  DEFAULT_LEAGUE_ID: 539861,
 };
 
 // Freeze config to prevent accidental modifications
