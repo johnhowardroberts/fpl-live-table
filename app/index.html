@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FPL Live Table</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="app">
+        <!-- Animated Background -->
+        <div class="bg-pattern"></div>
+        
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <div class="logo">
+                    <span class="logo-icon">⚽</span>
+                    <h1>FPL Live</h1>
+                </div>
+                <div class="header-actions">
+                    <button id="refreshBtn" class="btn btn-icon" title="Refresh">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 12a9 9 0 11-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/>
+                            <path d="M21 3v5h-5"/>
+                        </svg>
+                    </button>
+                    <span id="lastUpdated" class="timestamp">--:--</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main">
+            <!-- Setup Section -->
+            <section class="setup-section" id="setupSection">
+                <div class="setup-card">
+                    <div class="setup-header">
+                        <span class="setup-icon">🏆</span>
+                        <h2>Enter Your League</h2>
+                        <p>Track your mini-league standings in real-time</p>
+                    </div>
+                    
+                    <div class="input-group">
+                        <input 
+                            type="number" 
+                            id="leagueIdInput" 
+                            placeholder="League ID" 
+                            min="1"
+                            autocomplete="off"
+                        >
+                        <button id="loadLeagueBtn" class="btn btn-primary">
+                            Load League
+                        </button>
+                    </div>
+                    
+                    <div class="setup-help">
+                        <details>
+                            <summary>How to find your League ID</summary>
+                            <ol>
+                                <li>Log in to <a href="https://fantasy.premierleague.com/" target="_blank" rel="noopener">fantasy.premierleague.com</a></li>
+                                <li>Go to <strong>Leagues & Cups</strong></li>
+                                <li>Click on your league</li>
+                                <li>Copy the number from the URL<br>
+                                    <code>fantasy.premierleague.com/leagues/<strong>123456</strong>/standings/c</code>
+                                </li>
+                            </ol>
+                        </details>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Leaderboard Section -->
+            <section class="leaderboard-section" id="leaderboardSection" style="display: none;">
+                <!-- League Header -->
+                <div class="league-header">
+                    <div class="league-info">
+                        <h2 id="leagueName">League Name</h2>
+                        <p id="leagueDetails">Loading...</p>
+                    </div>
+                    <button id="changeLeagueBtn" class="btn btn-ghost">
+                        Change League
+                    </button>
+                </div>
+
+                <!-- Controls Bar -->
+                <div class="controls-bar">
+                    <div class="view-toggle">
+                        <button class="toggle-btn active" data-view="monthly">Monthly</button>
+                        <button class="toggle-btn" data-view="gameweek">Gameweek</button>
+                    </div>
+                    
+                    <div class="month-selector" id="monthControls">
+                        <select id="monthFilter">
+                            <option value="">Loading...</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Stats Summary -->
+                <div class="stats-summary" id="statsSummary">
+                    <div class="stat-card">
+                        <span class="stat-value" id="statGameweek">--</span>
+                        <span class="stat-label">Gameweek</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-value" id="statTeams">--</span>
+                        <span class="stat-label">Teams</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-value" id="statHighest">--</span>
+                        <span class="stat-label">Highest</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-value" id="statAverage">--</span>
+                        <span class="stat-label">Average</span>
+                    </div>
+                </div>
+
+                <!-- Leaderboard Table -->
+                <div class="table-container">
+                    <table class="leaderboard-table" id="leaderboardTable">
+                        <thead>
+                            <tr>
+                                <th class="col-rank">#</th>
+                                <th class="col-manager">Manager</th>
+                                <th class="col-team">Team</th>
+                                <th class="col-gw">GW</th>
+                                <th class="col-score" id="scoreHeader">Monthly</th>
+                                <th class="col-played">Played</th>
+                                <th class="col-captain">Captain</th>
+                            </tr>
+                        </thead>
+                        <tbody id="leaderboardBody">
+                            <!-- Data populated by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Loading Overlay -->
+                <div class="loading-overlay" id="loadingIndicator">
+                    <div class="loading-spinner"></div>
+                    <p>Fetching live data...</p>
+                </div>
+
+                <!-- Error Message -->
+                <div class="error-message" id="errorMessage" style="display: none;">
+                    <span class="error-icon">⚠️</span>
+                    <p>Something went wrong. Please try again.</p>
+                    <button class="btn btn-primary" onclick="location.reload()">Retry</button>
+                </div>
+            </section>
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>Data from <a href="https://fantasy.premierleague.com" target="_blank" rel="noopener">Fantasy Premier League</a></p>
+        </footer>
+    </div>
+
+    <script src="config.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

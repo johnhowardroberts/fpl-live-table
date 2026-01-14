@@ -1,0 +1,15 @@
+# Render Blueprint
+# This file tells Render how to deploy your app
+# https://render.com/docs/blueprint-spec
+
+services:
+  - type: web
+    name: fpl-live-table
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
