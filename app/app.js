@@ -14,6 +14,7 @@ class FPLLiveTable {
     this.availableMonths = [];
     this.currentGameweek = 1;
     this.gameweekDates = new Map();
+    this.expandedRows = new Set(); // Track which rows are expanded
     
     // Cache
     this.cache = new Map();
@@ -41,20 +42,14 @@ class FPLLiveTable {
       // Leaderboard
       leaderboardSection: document.getElementById('leaderboardSection'),
       leagueName: document.getElementById('leagueName'),
-      leagueDetails: document.getElementById('leagueDetails'),
       changeLeagueBtn: document.getElementById('changeLeagueBtn'),
       
       // Controls
-      viewButtons: document.querySelectorAll('.toggle-btn'),
-      monthControls: document.getElementById('monthControls'),
       monthFilter: document.getElementById('monthFilter'),
-      scoreHeader: document.getElementById('scoreHeader'),
       
-      // Stats
-      statGameweek: document.getElementById('statGameweek'),
-      statTeams: document.getElementById('statTeams'),
-      statHighest: document.getElementById('statHighest'),
-      statAverage: document.getElementById('statAverage'),
+      // Gameweek
+      gwNumber: document.getElementById('gwNumber'),
+      gwStatus: document.getElementById('gwStatus'),
       
       // Table
       leaderboardBody: document.getElementById('leaderboardBody'),
@@ -81,11 +76,6 @@ class FPLLiveTable {
     
     // Refresh
     this.el.refreshBtn.addEventListener('click', () => this.refresh());
-    
-    // View toggle
-    this.el.viewButtons.forEach(btn => {
-      btn.addEventListener('click', (e) => this.switchView(e.target.dataset.view));
-    });
     
     // Month filter
     this.el.monthFilter.addEventListener('change', (e) => {
@@ -233,6 +223,7 @@ class FPLLiveTable {
       this.players = new Map(bootstrap.elements.map(p => [p.id, p]));
       this.teams = new Map(bootstrap.teams.map(t => [t.id, t]));
       this.events = bootstrap.events;
+      this.fixtures = fixtures;
       
       // Determine current gameweek
       this.currentGameweek = this.getCurrentGameweek(eventStatus, bootstrap.events);
@@ -396,13 +387,12 @@ class FPLLiveTable {
       ? currentKey 
       : this.availableMonths[this.availableMonths.length - 1];
     
-    // Populate dropdown
+    // Populate dropdown (month name only, no year)
     this.el.monthFilter.innerHTML = '';
     this.availableMonths.forEach(key => {
       const [year, month] = key.split('-').map(Number);
       const label = new Date(year, month).toLocaleDateString('en-GB', { 
-        month: 'long', 
-        year: 'numeric' 
+        month: 'long'
       });
       
       const option = document.createElement('option');
@@ -440,8 +430,12 @@ class FPLLiveTable {
           gameweekPoints: 0,
           monthlyPoints: 0,
           playedPlayers: 0,
+          maxPlayers: 11,
           captain: null,
           captainPlayed: false,
+          activeChip: null,
+          livePoints: 0,
+          picks: null,
         };
       }
       
@@ -467,29 +461,68 @@ class FPLLiveTable {
         gameweekPoints: gameweekPoints + liveInfo.bonusPoints,
         monthlyPoints,
         playedPlayers: liveInfo.played,
+        maxPlayers: liveInfo.maxPlayers || 11,
         captain: liveInfo.captainName,
         captainPlayed: liveInfo.captainPlayed,
+        activeChip: liveInfo.activeChip,
+        livePoints: liveInfo.livePoints,
+        picks: data.picks, // Store picks for player detail view
       };
     });
   }
 
   calculateLiveInfo(picks) {
     if (!picks?.picks || !this.liveData?.elements) {
-      return { played: 0, captainName: null, captainPlayed: false, bonusPoints: 0 };
+      return { played: 0, captainName: null, captainPlayed: false, bonusPoints: 0, activeChip: null, livePoints: 0 };
     }
     
     let played = 0;
     let captainName = null;
     let captainPlayed = false;
+    let livePoints = 0;
     
-    // Only count first 11 (not bench)
-    const starting11 = picks.picks.slice(0, 11);
+    // Check for active chip
+    const activeChip = picks.active_chip; // 'bboost', '3xc', 'freehit', 'wildcard'
+    const isBenchBoost = activeChip === 'bboost';
     
-    starting11.forEach(pick => {
+    // Process automatic substitutions
+    const autoSubs = picks.automatic_subs || [];
+    const subbedOut = new Set(autoSubs.map(sub => sub.element_out));
+    const subbedIn = new Set(autoSubs.map(sub => sub.element_in));
+    
+    // Determine which players are actually playing (accounting for auto-subs)
+    const activePicks = picks.picks.map((pick, index) => {
+      const isStarting = index < 11;
+      const wasSubbedOut = subbedOut.has(pick.element);
+      const wasSubbedIn = subbedIn.has(pick.element);
+      
+      // Player is active if:
+      // - They're in starting 11 and NOT subbed out, OR
+      // - They're on bench and were subbed in, OR
+      // - Bench Boost is active and they're on bench
+      const isActive = (isStarting && !wasSubbedOut) || 
+                       wasSubbedIn || 
+                       (isBenchBoost && index >= 11);
+      
+      return { ...pick, isActive, wasSubbedIn, wasSubbedOut };
+    });
+    
+    // Calculate points and played count
+    activePicks.forEach(pick => {
+      if (!pick.isActive) return;
+      
       const liveElement = this.liveData.elements.find(e => e.id === pick.element);
       const hasPlayed = liveElement?.stats?.minutes > 0;
+      // Include provisional bonus points (separate from total_points during live matches)
+      const basePoints = liveElement?.stats?.total_points || 0;
+      const bonusPoints = liveElement?.stats?.bonus || 0;
+      const points = basePoints + bonusPoints;
       
-      if (hasPlayed) played++;
+      if (hasPlayed) {
+        played++;
+        // Apply multiplier (1 for normal, 2 for captain, 3 for triple captain)
+        livePoints += points * pick.multiplier;
+      }
       
       // Check if captain
       if (pick.is_captain) {
@@ -499,7 +532,85 @@ class FPLLiveTable {
       }
     });
     
-    return { played, captainName, captainPlayed, bonusPoints: 0 };
+    // For bench boost, count all 15 potential players
+    const maxPlayers = isBenchBoost ? 15 : 11;
+    
+    return { 
+      played, 
+      maxPlayers,
+      captainName, 
+      captainPlayed, 
+      bonusPoints: 0, 
+      activeChip,
+      livePoints,
+    };
+  }
+
+  // Get detailed player info for a manager's picks
+  getPlayerDetails(picks) {
+    if (!picks?.picks) return { starting: [], bench: [], activeChip: null };
+    
+    const activeChip = picks.active_chip;
+    const isBenchBoost = activeChip === 'bboost';
+    
+    // Process automatic substitutions
+    const autoSubs = picks.automatic_subs || [];
+    const subbedOutMap = new Map(autoSubs.map(sub => [sub.element_out, sub.element_in]));
+    const subbedInSet = new Set(autoSubs.map(sub => sub.element_in));
+    
+    const getPlayerInfo = (pick, index) => {
+      const player = this.players.get(pick.element);
+      const team = player ? this.teams.get(player.team) : null;
+      const liveElement = this.liveData?.elements?.find(e => e.id === pick.element);
+      
+      // Include provisional bonus points (separate from total_points during live matches)
+      const basePoints = liveElement?.stats?.total_points || 0;
+      const bonusPoints = liveElement?.stats?.bonus || 0;
+      const points = basePoints + bonusPoints;
+      const minutes = liveElement?.stats?.minutes || 0;
+      const hasPlayed = minutes > 0;
+      
+      // Check auto-sub status
+      const wasSubbedOut = subbedOutMap.has(pick.element);
+      const wasSubbedIn = subbedInSet.has(pick.element);
+      const isStarting = index < 11;
+      
+      // Determine if player's points count
+      const pointsCount = (isStarting && !wasSubbedOut) || 
+                          wasSubbedIn || 
+                          (isBenchBoost && index >= 11);
+      
+      // Calculate effective points (captain gets 2x, triple captain 3x)
+      let effectivePoints = pointsCount ? points * pick.multiplier : 0;
+      
+      return {
+        id: pick.element,
+        name: player?.web_name || 'Unknown',
+        teamName: team?.short_name || '???',
+        teamCode: team?.code || 0,
+        position: player?.element_type || 0, // 1=GK, 2=DEF, 3=MID, 4=FWD
+        points: points,
+        bonusPoints: bonusPoints,
+        effectivePoints: effectivePoints,
+        multiplier: pick.multiplier,
+        isCaptain: pick.is_captain,
+        isViceCaptain: pick.is_vice_captain,
+        hasPlayed: hasPlayed,
+        minutes: minutes,
+        isBench: index >= 11,
+        wasSubbedOut: wasSubbedOut,
+        wasSubbedIn: wasSubbedIn,
+        pointsCount: pointsCount,
+      };
+    };
+    
+    const allPlayers = picks.picks.map((pick, index) => getPlayerInfo(pick, index));
+    
+    return {
+      starting: allPlayers.slice(0, 11),
+      bench: allPlayers.slice(11),
+      activeChip: activeChip,
+    };
   }
 
   // ============================================
@@ -508,7 +619,6 @@ class FPLLiveTable {
 
   updateLeagueInfo(standings) {
     this.el.leagueName.textContent = standings.league.name;
-    this.el.leagueDetails.textContent = `${standings.standings.results.length} teams`;
   }
 
   renderLeaderboard() {
@@ -527,6 +637,12 @@ class FPLLiveTable {
     sorted.forEach((manager, index) => {
       const row = this.createRow(manager, index + 1);
       this.el.leaderboardBody.appendChild(row);
+      
+      // Add expanded player details row if this row is expanded
+      if (this.expandedRows.has(manager.entry)) {
+        const detailsRow = this.createPlayerDetailsRow(manager);
+        this.el.leaderboardBody.appendChild(detailsRow);
+      }
     });
     
     // Hide loading
@@ -534,15 +650,26 @@ class FPLLiveTable {
   }
 
   updateStats(scores) {
-    this.el.statGameweek.textContent = `GW${this.currentGameweek}`;
-    this.el.statTeams.textContent = scores.length;
+    // Update gameweek number
+    this.el.gwNumber.textContent = this.currentGameweek;
     
-    if (scores.length > 0) {
-      const scoreField = this.currentView === 'monthly' ? 'monthlyPoints' : 'gameweekPoints';
-      const values = scores.map(s => s[scoreField]);
-      
-      this.el.statHighest.textContent = Math.max(...values);
-      this.el.statAverage.textContent = Math.round(values.reduce((a, b) => a + b, 0) / values.length);
+    // Determine if gameweek is live or finished
+    const currentEvent = this.events?.find(e => e.id === this.currentGameweek);
+    const isFinished = currentEvent?.finished || false;
+    
+    // Check if any fixtures are currently in progress
+    const isLive = !isFinished && this.fixtures?.some(f => 
+      f.event === this.currentGameweek && f.started && !f.finished
+    );
+    
+    // Update status badge
+    if (isFinished) {
+      this.el.gwStatus.innerHTML = '<span class="status-done">DONE</span>';
+    } else if (isLive) {
+      this.el.gwStatus.innerHTML = '<span class="status-live">LIVE</span>';
+    } else {
+      // Upcoming or between fixtures
+      this.el.gwStatus.innerHTML = '';
     }
   }
 
@@ -565,22 +692,36 @@ class FPLLiveTable {
 
   createRow(manager, rank) {
     const row = document.createElement('tr');
+    row.className = 'manager-row';
+    row.dataset.managerId = manager.entry;
     
-    // Rank badge
-    const rankClass = rank <= 3 ? `rank-${rank}` : 'rank-other';
+    // Check if expanded
+    const isExpanded = this.expandedRows.has(manager.entry);
+    if (isExpanded) row.classList.add('expanded');
+    
+    // Rank badge - only rank 1 gets special treatment (winner takes all)
+    const rankClass = rank === 1 ? 'rank-winner' : 'rank-other';
+    const rankContent = rank === 1 ? '💰' : rank;
     
     // Score field based on view
     const mainScore = this.currentView === 'monthly' ? manager.monthlyPoints : manager.gameweekPoints;
     
+    // Chip badge
+    const chipBadge = manager.activeChip ? this.getChipBadge(manager.activeChip) : '';
+    
     row.innerHTML = `
       <td class="col-rank">
-        <span class="rank-badge ${rankClass}">${rank}</span>
+        <span class="rank-badge ${rankClass}">${rankContent}</span>
       </td>
       <td class="col-manager">
-        <span class="manager-name">${this.escapeHtml(manager.player_name || 'Unknown')}</span>
-      </td>
-      <td class="col-team">
-        <span class="team-name">${this.escapeHtml(manager.entry_name)}</span>
+        <div class="manager-cell">
+          <span class="expand-btn">${isExpanded ? '▼' : '▶'}</span>
+          <div class="manager-info">
+            <span class="manager-name">${this.escapeHtml(manager.player_name || 'Unknown')}</span>
+            <span class="team-name">${this.escapeHtml(manager.entry_name)}</span>
+          </div>
+          ${chipBadge}
+        </div>
       </td>
       <td class="col-gw">
         <span class="points-gw">${manager.gameweekPoints}</span>
@@ -588,12 +729,12 @@ class FPLLiveTable {
       <td class="col-score">
         <span class="points-main">${mainScore}</span>
       </td>
-      <td class="col-played">
+      <td class="col-played hide-mobile">
         <span class="played-display">
-          <span class="count">${manager.playedPlayers}</span><span class="total">/11</span>
+          <span class="count">${manager.playedPlayers}</span><span class="total">/${manager.maxPlayers}</span>
         </span>
       </td>
-      <td class="col-captain">
+      <td class="col-captain hide-mobile">
         <span class="captain-display">
           <span class="captain-name">${this.escapeHtml(manager.captain || '--')}</span>
           <span class="captain-status">${manager.captain ? (manager.captainPlayed ? '✅' : '⏳') : ''}</span>
@@ -601,21 +742,163 @@ class FPLLiveTable {
       </td>
     `;
     
+    // Add click handler to toggle expansion
+    row.addEventListener('click', () => this.toggleRowExpansion(manager));
+    
     return row;
   }
 
-  switchView(view) {
-    this.currentView = view;
+  createPlayerDetailsRow(manager) {
+    const row = document.createElement('tr');
+    row.className = 'player-details-row';
+    row.dataset.managerId = manager.entry;
     
-    // Update button states
-    this.el.viewButtons.forEach(btn => {
-      btn.classList.toggle('active', btn.dataset.view === view);
+    const details = this.getPlayerDetails(manager.picks);
+    
+    // Group starting players by position
+    const positions = {
+      1: { name: 'GK', players: [] },
+      2: { name: 'DEF', players: [] },
+      3: { name: 'MID', players: [] },
+      4: { name: 'FWD', players: [] },
+    };
+    
+    details.starting.forEach(player => {
+      if (positions[player.position]) {
+        positions[player.position].players.push(player);
+      }
     });
     
-    // Update header
-    this.el.scoreHeader.textContent = view === 'monthly' ? 'Monthly' : 'GW';
+    row.innerHTML = `
+      <td colspan="7">
+        <div class="player-grid-container">
+          <div class="player-grid">
+            ${Object.values(positions).map(pos => `
+              <div class="position-group">
+                <div class="position-label">${pos.name}</div>
+                <div class="position-players">
+                  ${pos.players.map(p => this.createPlayerCard(p)).join('')}
+                </div>
+              </div>
+            `).join('')}
+          </div>
+          <div class="bench-section">
+            <div class="bench-label">BENCH</div>
+            <div class="bench-players">
+              ${details.bench.map(p => this.createPlayerCard(p, true)).join('')}
+            </div>
+          </div>
+        </div>
+      </td>
+    `;
     
-    // Re-render
+    return row;
+  }
+
+  createPlayerCard(player, isBench = false) {
+    const captainBadge = player.isCaptain ? '<span class="captain-badge">C</span>' : 
+                         player.isViceCaptain ? '<span class="vc-badge">V</span>' : '';
+    
+    // Determine points display class
+    let pointsClass = 'points-pending';
+    if (player.hasPlayed && player.pointsCount) {
+      pointsClass = player.effectivePoints >= 6 ? 'points-high' : 
+                    player.effectivePoints >= 4 ? 'points-mid' : 'points-low';
+    } else if (player.wasSubbedOut) {
+      pointsClass = 'points-subbed-out';
+    }
+    
+    const multiplierBadge = player.multiplier > 1 && player.pointsCount ? 
+      `<span class="multiplier-badge">×${player.multiplier}</span>` : '';
+    
+    // Bonus points indicator
+    const bonusBadge = player.bonusPoints > 0 && player.pointsCount ? 
+      `<span class="bonus-badge">+${player.bonusPoints}</span>` : '';
+    
+    // Auto-sub indicator
+    const subBadge = player.wasSubbedOut ? '<span class="sub-badge sub-out">↓</span>' :
+                     player.wasSubbedIn ? '<span class="sub-badge sub-in">↑</span>' : '';
+    
+    // Card classes
+    const cardClasses = [
+      'player-card',
+      isBench ? 'bench' : '',
+      player.hasPlayed ? 'played' : 'not-played',
+      player.wasSubbedOut ? 'subbed-out' : '',
+      player.wasSubbedIn ? 'subbed-in' : '',
+      !player.pointsCount ? 'no-points' : '',
+    ].filter(Boolean).join(' ');
+    
+    // Points display
+    let pointsDisplay = '-';
+    if (player.hasPlayed) {
+      pointsDisplay = player.pointsCount ? player.effectivePoints : `<s>${player.points}</s>`;
+    }
+    
+    return `
+      <div class="${cardClasses}">
+        <div class="player-team-badge" style="background-color: ${this.getTeamColor(player.teamCode)}">
+          ${player.teamName}
+        </div>
+        ${captainBadge}
+        ${subBadge}
+        <div class="player-name">${player.name}</div>
+        <div class="player-points ${pointsClass}">
+          ${pointsDisplay}
+          ${multiplierBadge}
+          ${bonusBadge}
+        </div>
+      </div>
+    `;
+  }
+
+  getChipBadge(chip) {
+    const chips = {
+      'bboost': { label: 'BB', title: 'Bench Boost', color: '#10b981' },
+      '3xc': { label: 'TC', title: 'Triple Captain', color: '#f59e0b' },
+      'freehit': { label: 'FH', title: 'Free Hit', color: '#3b82f6' },
+      'wildcard': { label: 'WC', title: 'Wildcard', color: '#8b5cf6' },
+    };
+    
+    const chipInfo = chips[chip];
+    if (!chipInfo) return '';
+    
+    return `<span class="chip-badge" style="background: ${chipInfo.color}" title="${chipInfo.title}">${chipInfo.label}</span>`;
+  }
+
+  getTeamColor(teamCode) {
+    // Premier League team colors by code
+    const teamColors = {
+      3: '#EF0107',   // Arsenal
+      7: '#670E36',   // Aston Villa
+      91: '#e30613',  // Bournemouth
+      94: '#0057B8',  // Brentford
+      36: '#0057B8',  // Brighton
+      8: '#034694',   // Chelsea
+      31: '#1B458F',  // Crystal Palace
+      11: '#003399',  // Everton
+      54: '#FFFFFF',  // Fulham
+      40: '#C8102E',  // Ipswich
+      2: '#003090',   // Leicester
+      14: '#C8102E',  // Liverpool
+      43: '#6CABDD',  // Man City
+      1: '#DA291C',   // Man Utd
+      4: '#241F20',   // Newcastle
+      17: '#DD0000',  // Nottingham Forest
+      20: '#D71920',  // Southampton
+      6: '#132257',   // Spurs
+      21: '#7A263A',  // West Ham
+      39: '#FDB913',  // Wolves
+    };
+    return teamColors[teamCode] || '#333';
+  }
+
+  toggleRowExpansion(manager) {
+    if (this.expandedRows.has(manager.entry)) {
+      this.expandedRows.delete(manager.entry);
+    } else {
+      this.expandedRows.add(manager.entry);
+    }
     this.renderLeaderboard();
   }
 
