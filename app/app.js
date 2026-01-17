@@ -480,6 +480,12 @@ class FPLLiveTable {
       return { played: 0, captainName: null, captainPlayed: false, bonusPoints: 0, activeChip: null, livePoints: 0 };
     }
     
+    // Debug: Check if any elements have bonus > 0
+    const playersWithBonus = this.liveData.elements.filter(e => e.stats?.bonus > 0);
+    if (playersWithBonus.length > 0) {
+      console.log(`[DEBUG] ${playersWithBonus.length} players have bonus in API response`);
+    }
+    
     let played = 0;
     let captainName = null;
     let captainPlayed = false;
@@ -521,6 +527,12 @@ class FPLLiveTable {
       const basePoints = liveElement?.stats?.total_points || 0;
       const bonusPoints = liveElement?.stats?.bonus || 0;
       const points = basePoints + bonusPoints;
+      
+      // Debug: Log bonus info for players with bonus
+      if (bonusPoints > 0) {
+        const player = this.players.get(pick.element);
+        console.log(`[BONUS] ${player?.web_name}: base=${basePoints}, bonus=${bonusPoints}, total=${points}`);
+      }
       
       if (hasPlayed) {
         played++;
