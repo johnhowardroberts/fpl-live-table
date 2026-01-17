@@ -439,26 +439,30 @@ class FPLLiveTable {
         };
       }
       
-      // Gameweek points from history
-      const gwData = data.history?.current?.find(h => h.event === this.currentGameweek);
-      const gameweekPoints = gwData?.points || 0;
+      // Calculate live score (includes bonus points)
+      const liveInfo = this.calculateLiveInfo(data.picks);
       
-      // Monthly points (sum of gameweeks in selected month)
+      // Use live calculated points for current gameweek (more accurate during live matches)
+      const gameweekPoints = liveInfo.livePoints;
+      
+      // Monthly points: sum historical GWs in month (excluding current) + current live points
       let monthlyPoints = 0;
       if (data.history?.current) {
         data.history.current.forEach(h => {
-          if (monthGameweeks.includes(h.event)) {
+          // Only add historical points for GWs in this month that aren't the current one
+          if (monthGameweeks.includes(h.event) && h.event !== this.currentGameweek) {
             monthlyPoints += h.points;
           }
         });
       }
-      
-      // Calculate live score adjustments
-      const liveInfo = this.calculateLiveInfo(data.picks);
+      // Add current GW live points if it's in the selected month
+      if (monthGameweeks.includes(this.currentGameweek)) {
+        monthlyPoints += gameweekPoints;
+      }
       
       return {
         ...manager,
-        gameweekPoints: gameweekPoints + liveInfo.bonusPoints,
+        gameweekPoints,
         monthlyPoints,
         playedPlayers: liveInfo.played,
         maxPlayers: liveInfo.maxPlayers || 11,
