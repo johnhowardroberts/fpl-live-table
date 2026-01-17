@@ -475,16 +475,83 @@ class FPLLiveTable {
     });
   }
 
+  // Calculate provisional bonus from BPS scores for each fixture
+  calculateProvisionalBonus() {
+    if (!this.fixtures || !this.liveData?.elements || !this.players) {
+      return new Map();
+    }
+    
+    const bonusMap = new Map(); // playerId -> provisional bonus points
+    
+    // Get current GW fixtures that have started
+    const gwFixtures = this.fixtures.filter(f => 
+      f.event === this.currentGameweek && f.started
+    );
+    
+    gwFixtures.forEach(fixture => {
+      // Find all players in this fixture (by team)
+      const playersInFixture = [];
+      
+      this.liveData.elements.forEach(element => {
+        const player = this.players.get(element.id);
+        if (player && (player.team === fixture.team_h || player.team === fixture.team_a)) {
+          // Only include players who have played (minutes > 0)
+          if (element.stats?.minutes > 0) {
+            playersInFixture.push({
+              id: element.id,
+              bps: element.stats?.bps || 0,
+              name: player.web_name
+            });
+          }
+        }
+      });
+      
+      // Sort by BPS descending
+      playersInFixture.sort((a, b) => b.bps - a.bps);
+      
+      // Award bonus points (3, 2, 1) with tie handling
+      // FPL rules: tied players share same bonus, next position(s) skipped
+      // - Two tied 1st: both get 3, next gets 1
+      // - Two tied 2nd: 1st gets 3, both get 2, no 3rd
+      // - Two tied 3rd: 1st gets 3, 2nd gets 2, BOTH get 1 (4 players can get bonus)
+      if (playersInFixture.length > 0) {
+        let position = 1; // Track position (1st, 2nd, 3rd)
+        let i = 0;
+        
+        while (i < playersInFixture.length && position <= 3) {
+          const currentBps = playersInFixture[i].bps;
+          
+          // Find all players tied at this BPS
+          const tiedPlayers = [];
+          while (i < playersInFixture.length && playersInFixture[i].bps === currentBps) {
+            tiedPlayers.push(playersInFixture[i]);
+            i++;
+          }
+          
+          // Calculate bonus for this position (3 for 1st, 2 for 2nd, 1 for 3rd)
+          const bonus = 4 - position; // position 1 = 3pts, position 2 = 2pts, position 3 = 1pt
+          
+          // All tied players get the same bonus
+          tiedPlayers.forEach(p => {
+            bonusMap.set(p.id, bonus);
+          });
+          
+          // Move position forward by number of tied players
+          position += tiedPlayers.length;
+        }
+      }
+    });
+    
+    return bonusMap;
+  }
+
   calculateLiveInfo(picks) {
     if (!picks?.picks || !this.liveData?.elements) {
       return { played: 0, captainName: null, captainPlayed: false, bonusPoints: 0, activeChip: null, livePoints: 0 };
     }
     
-    // Debug: Check if any elements have bonus > 0
-    const playersWithBonus = this.liveData.elements.filter(e => e.stats?.bonus > 0);
-    if (playersWithBonus.length > 0) {
-      console.log(`[DEBUG] ${playersWithBonus.length} players have bonus in API response`);
-    }
+    // Calculate provisional bonus from BPS
+    const provisionalBonus = this.calculateProvisionalBonus();
     
     let played = 0;
     let captainName = null;
@@ -523,16 +590,16 @@ class FPLLiveTable {
       
       const liveElement = this.liveData.elements.find(e => e.id === pick.element);
       const hasPlayed = liveElement?.stats?.minutes > 0;
-      // Include provisional bonus points (separate from total_points during live matches)
-      const basePoints = liveElement?.stats?.total_points || 0;
-      const bonusPoints = liveElement?.stats?.bonus || 0;
-      const points = basePoints + bonusPoints;
       
-      // Debug: Log bonus info for players with bonus
-      if (bonusPoints > 0) {
-        const player = this.players.get(pick.element);
-        console.log(`[BONUS] ${player?.web_name}: base=${basePoints}, bonus=${bonusPoints}, total=${points}`);
-      }
+      // Get base points from API
+      const basePoints = liveElement?.stats?.total_points || 0;
+      
+      // Use API bonus if available, otherwise use our calculated provisional bonus
+      const apiBonus = liveElement?.stats?.bonus || 0;
+      const calcBonus = provisionalBonus.get(pick.element) || 0;
+      const bonusPoints = apiBonus > 0 ? apiBonus : calcBonus;
+      
+      const points = basePoints + bonusPoints;
       
       if (hasPlayed) {
         played++;
@@ -569,6 +636,9 @@ class FPLLiveTable {
     const activeChip = picks.active_chip;
     const isBenchBoost = activeChip === 'bboost';
     
+    // Calculate provisional bonus from BPS
+    const provisionalBonus = this.calculateProvisionalBonus();
+    
     // Process automatic substitutions
     const autoSubs = picks.automatic_subs || [];
     const subbedOutMap = new Map(autoSubs.map(sub => [sub.element_out, sub.element_in]));
@@ -579,9 +649,14 @@ class FPLLiveTable {
       const team = player ? this.teams.get(player.team) : null;
       const liveElement = this.liveData?.elements?.find(e => e.id === pick.element);
       
-      // Include provisional bonus points (separate from total_points during live matches)
+      // Get base points from API
       const basePoints = liveElement?.stats?.total_points || 0;
-      const bonusPoints = liveElement?.stats?.bonus || 0;
+      
+      // Use API bonus if available, otherwise use our calculated provisional bonus
+      const apiBonus = liveElement?.stats?.bonus || 0;
+      const calcBonus = provisionalBonus.get(pick.element) || 0;
+      const bonusPoints = apiBonus > 0 ? apiBonus : calcBonus;
+      
       const points = basePoints + bonusPoints;
       const minutes = liveElement?.stats?.minutes || 0;
       const hasPlayed = minutes > 0;
