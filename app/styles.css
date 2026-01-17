@@ -555,19 +555,32 @@ a:hover {
 
 /* Fixture Status Indicators */
 .fixture-status {
-  font-size: 0.5rem;
-  margin-left: 3px;
+  margin-left: 4px;
   vertical-align: middle;
+  display: inline-block;
 }
 
 .fixture-status.playing {
-  color: #ef4444;
-  animation: pulse-live 1.5s ease-in-out infinite;
+  font-size: 0.7rem;
+  color: #22c55e;
+  text-shadow: 0 0 8px #22c55e, 0 0 12px #22c55e, 0 0 16px #22c55e;
+  animation: glow-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes glow-pulse {
+  0%, 100% { 
+    text-shadow: 0 0 6px #22c55e, 0 0 10px #22c55e;
+    opacity: 1;
+  }
+  50% { 
+    text-shadow: 0 0 12px #22c55e, 0 0 20px #22c55e, 0 0 28px #22c55e;
+    opacity: 0.9;
+  }
 }
 
 .fixture-status.finished {
-  color: #10b981;
-  font-size: 0.55rem;
+  color: #6b7280;
+  font-size: 0.6rem;
 }
 
 /* Captain Display */

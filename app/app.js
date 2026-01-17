@@ -955,11 +955,10 @@ class FPLLiveTable {
       <div class="${cardClasses}">
         <div class="player-team-badge" style="background-color: ${this.getTeamColor(player.teamCode)}">
           ${player.teamName}
-          ${statusIndicator}
         </div>
         ${captainBadge}
         ${subBadge}
-        <div class="player-name">${player.name}</div>
+        <div class="player-name">${player.name}${statusIndicator}</div>
         <div class="player-points ${pointsClass}">
           ${pointsDisplay}
           ${multiplierBadge}
