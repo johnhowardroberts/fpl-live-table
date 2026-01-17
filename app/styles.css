@@ -528,13 +528,13 @@ a:hover {
 /* Points Display */
 .points-gw {
   font-family: var(--font-mono);
-  font-size: 0.9375rem;
+  font-size: 1.1rem;
   color: var(--color-text-muted);
 }
 
 .points-main {
   font-family: var(--font-mono);
-  font-size: 1.125rem;
+  font-size: 1.3rem;
   font-weight: 600;
   color: var(--color-accent);
 }
@@ -542,7 +542,7 @@ a:hover {
 /* Played Players */
 .played-display {
   font-family: var(--font-mono);
-  font-size: 0.875rem;
+  font-size: 1rem;
 }
 
 .played-display .count {
@@ -551,6 +551,23 @@ a:hover {
 
 .played-display .total {
   color: var(--color-text-dim);
+}
+
+/* Fixture Status Indicators */
+.fixture-status {
+  font-size: 0.5rem;
+  margin-left: 3px;
+  vertical-align: middle;
+}
+
+.fixture-status.playing {
+  color: #ef4444;
+  animation: pulse-live 1.5s ease-in-out infinite;
+}
+
+.fixture-status.finished {
+  color: #10b981;
+  font-size: 0.55rem;
 }
 
 /* Captain Display */
@@ -706,8 +723,16 @@ a:hover {
     font-size: 0.65rem;
   }
   
-  .points-gw, .points-main {
-    font-size: 0.85rem;
+  .points-gw {
+    font-size: 1rem;
+  }
+  
+  .points-main {
+    font-size: 1.15rem;
+  }
+  
+  .played-display {
+    font-size: 0.9rem;
   }
 }
 

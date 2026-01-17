@@ -674,6 +674,22 @@ class FPLLiveTable {
       // Calculate effective points (captain gets 2x, triple captain 3x)
       let effectivePoints = pointsCount ? points * pick.multiplier : 0;
       
+      // Get fixture status for this player's team
+      let fixtureStatus = 'upcoming'; // 'upcoming', 'playing', 'finished'
+      if (player && this.fixtures) {
+        const playerFixture = this.fixtures.find(f => 
+          f.event === this.currentGameweek && 
+          (f.team_h === player.team || f.team_a === player.team)
+        );
+        if (playerFixture) {
+          if (playerFixture.finished || playerFixture.finished_provisional) {
+            fixtureStatus = 'finished';
+          } else if (playerFixture.started) {
+            fixtureStatus = 'playing';
+          }
+        }
+      }
+      
       return {
         id: pick.element,
         name: player?.web_name || 'Unknown',
@@ -692,6 +708,7 @@ class FPLLiveTable {
         wasSubbedOut: wasSubbedOut,
         wasSubbedIn: wasSubbedIn,
         pointsCount: pointsCount,
+        fixtureStatus: fixtureStatus,
       };
     };
     
@@ -820,7 +837,7 @@ class FPLLiveTable {
       <td class="col-score">
         <span class="points-main">${mainScore}</span>
       </td>
-      <td class="col-played hide-mobile">
+      <td class="col-played">
         <span class="played-display">
           <span class="count">${manager.playedPlayers}</span><span class="total">/${manager.maxPlayers}</span>
         </span>
@@ -890,6 +907,14 @@ class FPLLiveTable {
     const captainBadge = player.isCaptain ? '<span class="captain-badge">C</span>' : 
                          player.isViceCaptain ? '<span class="vc-badge">V</span>' : '';
     
+    // Fixture status indicator
+    let statusIndicator = '';
+    if (player.fixtureStatus === 'playing') {
+      statusIndicator = '<span class="fixture-status playing" title="In Play">●</span>';
+    } else if (player.fixtureStatus === 'finished') {
+      statusIndicator = '<span class="fixture-status finished" title="Finished">✓</span>';
+    }
+    
     // Determine points display class
     let pointsClass = 'points-pending';
     if (player.hasPlayed && player.pointsCount) {
@@ -930,6 +955,7 @@ class FPLLiveTable {
       <div class="${cardClasses}">
         <div class="player-team-badge" style="background-color: ${this.getTeamColor(player.teamCode)}">
           ${player.teamName}
+          ${statusIndicator}
         </div>
         ${captainBadge}
         ${subBadge}
