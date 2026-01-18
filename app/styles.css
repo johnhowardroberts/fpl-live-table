@@ -956,8 +956,6 @@ a:hover {
   padding: 1px 4px;
   border-radius: 2px;
   margin-bottom: 2px;
-  color: white;
-  text-shadow: 0 1px 1px rgba(0,0,0,0.5);
 }
 
 .player-card .player-name {
@@ -1225,8 +1223,6 @@ a:hover {
   justify-content: center;
   font-size: 0.5rem;
   font-weight: 700;
-  color: white;
-  text-shadow: 0 1px 2px rgba(0,0,0,0.5);
   flex-shrink: 0;
 }
 
@@ -1242,7 +1238,7 @@ a:hover {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-  min-width: 120px;
+  min-width: 100px;
   justify-content: center;
 }
 
@@ -1277,12 +1273,13 @@ a:hover {
   color: var(--color-text-dim);
 }
 
-/* Fixture Status Indicator - Side Position */
+/* Fixture Status Indicator - Far Left Position */
 .fixture-status-indicator {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-width: 28px;
+  min-width: 36px;
+  flex-shrink: 0;
 }
 
 .status-ft {
@@ -1296,24 +1293,26 @@ a:hover {
 }
 
 .status-live {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: #22c55e;
-  box-shadow: 0 0 8px #22c55e, 0 0 16px #22c55e;
-  animation: live-pulse 1.2s ease-in-out infinite;
+  font-size: 0.5rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 3px 6px;
+  border-radius: 3px;
+  background: var(--color-primary);
+  color: white;
+  box-shadow: 0 0 10px rgba(233, 0, 82, 0.5);
+  animation: fixture-live-pulse 1.5s ease-in-out infinite;
 }
 
-@keyframes live-pulse {
+@keyframes fixture-live-pulse {
   0%, 100% { 
-    transform: scale(1);
-    box-shadow: 0 0 8px #22c55e, 0 0 16px #22c55e;
+    box-shadow: 0 0 10px rgba(233, 0, 82, 0.5);
     opacity: 1;
   }
   50% { 
-    transform: scale(1.2);
-    box-shadow: 0 0 12px #22c55e, 0 0 24px #22c55e, 0 0 36px rgba(34, 197, 94, 0.4);
-    opacity: 0.8;
+    box-shadow: 0 0 20px rgba(233, 0, 82, 0.8), 0 0 30px rgba(233, 0, 82, 0.4);
+    opacity: 0.85;
   }
 }
 
@@ -1343,9 +1342,27 @@ a:hover {
 
 .details-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 1px;
   background: rgba(255, 255, 255, 0.05);
+}
+
+/* Card indicators */
+.card-icon {
+  display: inline-block;
+  width: 10px;
+  height: 14px;
+  border-radius: 2px;
+  margin-left: var(--space-xs);
+  vertical-align: middle;
+}
+
+.card-icon.yellow {
+  background: #fbbf24;
+}
+
+.card-icon.red {
+  background: #ef4444;
 }
 
 .details-column {
@@ -1405,8 +1422,6 @@ a:hover {
   font-size: 0.5rem;
   padding: 1px 4px;
   border-radius: 2px;
-  color: white;
-  text-shadow: 0 1px 1px rgba(0,0,0,0.5);
   margin-right: var(--space-xs);
 }
 
@@ -1438,13 +1453,16 @@ a:hover {
   }
   
   .fixture-score-wrapper {
-    min-width: 90px;
-    gap: var(--space-xs);
+    min-width: 70px;
+  }
+  
+  .fixture-status-indicator {
+    min-width: 30px;
   }
   
   .status-live {
-    width: 8px;
-    height: 8px;
+    font-size: 0.45rem;
+    padding: 2px 4px;
   }
   
   .status-ft {

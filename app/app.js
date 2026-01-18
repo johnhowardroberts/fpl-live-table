@@ -1028,7 +1028,7 @@ class FPLLiveTable {
     
     return `
       <div class="${cardClasses}">
-        <div class="player-team-badge" style="background-color: ${this.getTeamColor(player.teamCode)}">
+        <div class="player-team-badge" style="background-color: ${this.getTeamColor(player.teamCode)}; color: ${this.getTeamTextColor(player.teamCode)}">
           ${player.teamName}
         </div>
         ${captainBadge}
@@ -1065,11 +1065,13 @@ class FPLLiveTable {
       91: '#e30613',  // Bournemouth
       94: '#0057B8',  // Brentford
       36: '#0057B8',  // Brighton
+      90: '#7A263A',  // Burnley (claret - same as West Ham)
       8: '#034694',   // Chelsea
       31: '#1B458F',  // Crystal Palace
       11: '#003399',  // Everton
       54: '#FFFFFF',  // Fulham
       40: '#C8102E',  // Ipswich
+      9: '#FFFFFF',   // Leeds (white background)
       2: '#003090',   // Leicester
       14: '#C8102E',  // Liverpool
       43: '#6CABDD',  // Man City
@@ -1078,10 +1080,21 @@ class FPLLiveTable {
       17: '#DD0000',  // Nottingham Forest
       20: '#D71920',  // Southampton
       6: '#132257',   // Spurs
+      56: '#C8102E',  // Sunderland (red - same as Liverpool)
       21: '#7A263A',  // West Ham
       39: '#FDB913',  // Wolves
     };
     return teamColors[teamCode] || '#333';
+  }
+
+  getTeamTextColor(teamCode) {
+    // Teams with light backgrounds need dark text
+    const darkTextTeams = {
+      54: '#000000',  // Fulham - black text on white
+      9: '#0033A0',   // Leeds - royal blue text on white
+      39: '#000000',  // Wolves - black text on gold
+    };
+    return darkTextTeams[teamCode] || '#FFFFFF';
   }
 
   toggleRowExpansion(manager) {
@@ -1174,7 +1187,7 @@ class FPLLiveTable {
     
     // Get score or time
     let scoreContent;
-    let statusIndicator = '';
+    let statusIndicator = '<div class="fixture-status-indicator"></div>'; // Empty placeholder for alignment
     
     if (fixture.started) {
       scoreContent = `
@@ -1186,7 +1199,7 @@ class FPLLiveTable {
       `;
       
       if (isLive) {
-        statusIndicator = '<div class="fixture-status-indicator"><span class="status-live"></span></div>';
+        statusIndicator = '<div class="fixture-status-indicator"><span class="status-live">LIVE</span></div>';
       } else if (isFinished) {
         statusIndicator = '<div class="fixture-status-indicator"><span class="status-ft">FT</span></div>';
       }
@@ -1199,9 +1212,11 @@ class FPLLiveTable {
     
     card.innerHTML = `
       <div class="fixture-header">
+        ${statusIndicator}
+        
         <div class="fixture-team home">
           <span class="team-name-fixture">${homeTeam?.short_name || 'HOME'}</span>
-          <span class="team-badge" style="background-color: ${this.getTeamColor(homeTeam?.code)}">
+          <span class="team-badge" style="background-color: ${this.getTeamColor(homeTeam?.code)}; color: ${this.getTeamTextColor(homeTeam?.code)}">
             ${homeTeam?.short_name?.substring(0, 3) || 'HOM'}
           </span>
         </div>
@@ -1210,11 +1225,10 @@ class FPLLiveTable {
           <div class="fixture-score">
             ${scoreContent}
           </div>
-          ${statusIndicator}
         </div>
         
         <div class="fixture-team away">
-          <span class="team-badge" style="background-color: ${this.getTeamColor(awayTeam?.code)}">
+          <span class="team-badge" style="background-color: ${this.getTeamColor(awayTeam?.code)}; color: ${this.getTeamTextColor(awayTeam?.code)}">
             ${awayTeam?.short_name?.substring(0, 3) || 'AWY'}
           </span>
           <span class="team-name-fixture">${awayTeam?.short_name || 'AWAY'}</span>
@@ -1230,7 +1244,7 @@ class FPLLiveTable {
             <div class="details-list">
               ${events.goals.length > 0 ? events.goals.map(g => `
                 <div class="details-item">
-                  <span class="team-indicator" style="background-color: ${this.getTeamColor(g.teamCode)}">${g.teamName}</span>
+                  <span class="team-indicator" style="background-color: ${this.getTeamColor(g.teamCode)}; color: ${this.getTeamTextColor(g.teamCode)}">${g.teamName}</span>
                   <span class="player-name-detail">${g.name}</span>
                   <span class="event-icon">${g.count > 1 ? `×${g.count}` : ''}</span>
                 </div>
@@ -1243,7 +1257,7 @@ class FPLLiveTable {
             <div class="details-list">
               ${events.assists.length > 0 ? events.assists.map(a => `
                 <div class="details-item">
-                  <span class="team-indicator" style="background-color: ${this.getTeamColor(a.teamCode)}">${a.teamName}</span>
+                  <span class="team-indicator" style="background-color: ${this.getTeamColor(a.teamCode)}; color: ${this.getTeamTextColor(a.teamCode)}">${a.teamName}</span>
                   <span class="player-name-detail">${a.name}</span>
                   <span class="event-icon">${a.count > 1 ? `×${a.count}` : ''}</span>
                 </div>
@@ -1252,11 +1266,24 @@ class FPLLiveTable {
           </div>
           
           <div class="details-column">
+            <div class="details-column-title">🟨 Cards</div>
+            <div class="details-list">
+              ${events.cards.length > 0 ? events.cards.map(c => `
+                <div class="details-item">
+                  <span class="team-indicator" style="background-color: ${this.getTeamColor(c.teamCode)}; color: ${this.getTeamTextColor(c.teamCode)}">${c.teamName}</span>
+                  <span class="player-name-detail">${c.name}</span>
+                  <span class="card-icon ${c.cardType}"></span>
+                </div>
+              `).join('') : '<div class="no-events">No cards</div>'}
+            </div>
+          </div>
+          
+          <div class="details-column">
             <div class="details-column-title">⭐ Bonus${events.bonusConfirmed ? '' : ' (Proj)'}</div>
             <div class="details-list">
               ${events.bonus.length > 0 ? events.bonus.map(b => `
                 <div class="details-item">
-                  <span class="team-indicator" style="background-color: ${this.getTeamColor(b.teamCode)}">${b.teamName}</span>
+                  <span class="team-indicator" style="background-color: ${this.getTeamColor(b.teamCode)}; color: ${this.getTeamTextColor(b.teamCode)}">${b.teamName}</span>
                   <span class="player-name-detail">${b.name}</span>
                   <span class="bonus-value">+${b.bonus}</span>
                 </div>
@@ -1278,6 +1305,7 @@ class FPLLiveTable {
     const events = {
       goals: [],
       assists: [],
+      cards: [],
       bonus: [],
       bonusConfirmed: false
     };
@@ -1317,6 +1345,30 @@ class FPLLiveTable {
             teamName: team?.short_name || '???',
             teamCode: team?.code,
             count: stats.assists
+          });
+        }
+        
+        // Yellow cards
+        if (stats.yellow_cards > 0) {
+          events.cards.push({
+            id: player.id,
+            name: player.web_name,
+            teamName: team?.short_name || '???',
+            teamCode: team?.code,
+            cardType: 'yellow',
+            count: stats.yellow_cards
+          });
+        }
+        
+        // Red cards
+        if (stats.red_cards > 0) {
+          events.cards.push({
+            id: player.id,
+            name: player.web_name,
+            teamName: team?.short_name || '???',
+            teamCode: team?.code,
+            cardType: 'red',
+            count: stats.red_cards
           });
         }
         
@@ -1373,6 +1425,12 @@ class FPLLiveTable {
     // Sort events
     events.goals.sort((a, b) => b.count - a.count);
     events.assists.sort((a, b) => b.count - a.count);
+    // Sort cards: yellow cards first, then red
+    events.cards.sort((a, b) => {
+      if (a.cardType === 'yellow' && b.cardType === 'red') return -1;
+      if (a.cardType === 'red' && b.cardType === 'yellow') return 1;
+      return 0;
+    });
     events.bonus.sort((a, b) => b.bonus - a.bonus);
     
     return events;
