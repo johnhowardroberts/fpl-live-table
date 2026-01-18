@@ -490,11 +490,52 @@ a:hover {
 
 /* Column Widths */
 .col-rank { width: 40px; text-align: center; }
+.col-move { width: 40px; text-align: center; }
 .col-manager { flex: 1; min-width: 120px; }
 .col-gw { width: 50px; text-align: center; }
 .col-score { width: 60px; text-align: center; }
 .col-played { width: 60px; text-align: center; }
 .col-captain { min-width: 100px; }
+
+/* Position Movement Indicator */
+.move-indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 600;
+  min-width: 28px;
+}
+
+.move-indicator.up {
+  color: #22c55e;
+}
+
+.move-indicator.down {
+  color: #ef4444;
+}
+
+.move-indicator.same {
+  color: var(--color-text-dim);
+}
+
+.move-arrow {
+  font-size: 0.6rem;
+}
+
+.move-indicator.up .move-arrow::before {
+  content: '▲';
+}
+
+.move-indicator.down .move-arrow::before {
+  content: '▼';
+}
+
+.move-indicator.same .move-arrow::before {
+  content: '–';
+}
 
 /* Hide on mobile */
 @media (max-width: 600px) {
@@ -726,6 +767,16 @@ a:hover {
   
   .rank-winner {
     font-size: 1.1rem;
+  }
+  
+  .col-move {
+    width: 30px;
+    padding: var(--space-xs) 2px !important;
+  }
+  
+  .move-indicator {
+    font-size: 0.6rem;
+    min-width: 24px;
   }
   
   .manager-info .manager-name {

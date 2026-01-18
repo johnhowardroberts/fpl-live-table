@@ -428,13 +428,15 @@ class FPLLiveTable {
     
     const monthGameweeks = this.getGameweeksForMonth(this.currentMonth);
     
-    return this.standings.standings.results.map(manager => {
+    // First pass: calculate all scores
+    const scores = this.standings.standings.results.map(manager => {
       const data = this.managerData.get(manager.entry);
       if (!data) {
         return {
           ...manager,
           gameweekPoints: 0,
           monthlyPoints: 0,
+          previousMonthlyPoints: 0,
           playedPlayers: 0,
           maxPlayers: 11,
           captain: null,
@@ -452,16 +454,18 @@ class FPLLiveTable {
       const gameweekPoints = liveInfo.livePoints;
       
       // Monthly points: sum historical GWs in month (excluding current) + current live points
-      let monthlyPoints = 0;
+      let monthlyPointsBeforeCurrentGW = 0;
       if (data.history?.current) {
         data.history.current.forEach(h => {
           // Only add historical points for GWs in this month that aren't the current one
           if (monthGameweeks.includes(h.event) && h.event !== this.currentGameweek) {
-            monthlyPoints += h.points;
+            monthlyPointsBeforeCurrentGW += h.points;
           }
         });
       }
-      // Add current GW live points if it's in the selected month
+      
+      // Calculate current monthly total
+      let monthlyPoints = monthlyPointsBeforeCurrentGW;
       if (monthGameweeks.includes(this.currentGameweek)) {
         monthlyPoints += gameweekPoints;
       }
@@ -470,6 +474,7 @@ class FPLLiveTable {
         ...manager,
         gameweekPoints,
         monthlyPoints,
+        previousMonthlyPoints: monthlyPointsBeforeCurrentGW, // Points before current GW
         playedPlayers: liveInfo.played,
         maxPlayers: liveInfo.maxPlayers || 11,
         captain: liveInfo.captainName,
@@ -477,6 +482,44 @@ class FPLLiveTable {
         activeChip: liveInfo.activeChip,
         livePoints: liveInfo.livePoints,
         picks: data.picks, // Store picks for player detail view
+      };
+    });
+    
+    return scores;
+  }
+
+  calculatePositionChanges(scores) {
+    // Sort by current monthly points to get current positions
+    const currentSorted = [...scores].sort((a, b) => {
+      if (b.monthlyPoints !== a.monthlyPoints) return b.monthlyPoints - a.monthlyPoints;
+      if (b.gameweekPoints !== a.gameweekPoints) return b.gameweekPoints - a.gameweekPoints;
+      return b.total - a.total;
+    });
+    
+    // Sort by previous monthly points (before current GW) to get previous positions
+    const previousSorted = [...scores].sort((a, b) => {
+      if (b.previousMonthlyPoints !== a.previousMonthlyPoints) return b.previousMonthlyPoints - a.previousMonthlyPoints;
+      return b.total - a.total;
+    });
+    
+    // Create position maps
+    const currentPositions = new Map();
+    currentSorted.forEach((m, idx) => currentPositions.set(m.entry, idx + 1));
+    
+    const previousPositions = new Map();
+    previousSorted.forEach((m, idx) => previousPositions.set(m.entry, idx + 1));
+    
+    // Calculate position change for each manager
+    return scores.map(manager => {
+      const currentPos = currentPositions.get(manager.entry);
+      const previousPos = previousPositions.get(manager.entry);
+      const positionChange = previousPos - currentPos; // Positive = moved up, Negative = moved down
+      
+      return {
+        ...manager,
+        currentPosition: currentPos,
+        previousPosition: previousPos,
+        positionChange: positionChange,
       };
     });
   }
@@ -744,8 +787,11 @@ class FPLLiveTable {
     // Calculate scores
     const scores = this.calculateScores();
     
+    // Calculate position changes
+    const scoresWithChanges = this.calculatePositionChanges(scores);
+    
     // Sort by the current view
-    const sorted = this.sortScores(scores);
+    const sorted = this.sortScores(scoresWithChanges);
     
     // Update stats
     this.updateStats(sorted);
@@ -828,9 +874,27 @@ class FPLLiveTable {
     // Chip badge
     const chipBadge = manager.activeChip ? this.getChipBadge(manager.activeChip) : '';
     
+    // Position change indicator
+    const posChange = manager.positionChange || 0;
+    let moveClass = 'same';
+    let moveContent = '';
+    if (posChange > 0) {
+      moveClass = 'up';
+      moveContent = posChange;
+    } else if (posChange < 0) {
+      moveClass = 'down';
+      moveContent = Math.abs(posChange);
+    }
+    
     row.innerHTML = `
       <td class="col-rank">
         <span class="rank-badge ${rankClass}">${rankContent}</span>
+      </td>
+      <td class="col-move">
+        <span class="move-indicator ${moveClass}">
+          <span class="move-arrow"></span>
+          ${moveContent}
+        </span>
       </td>
       <td class="col-manager">
         <div class="manager-cell">
@@ -889,7 +953,7 @@ class FPLLiveTable {
     });
     
     row.innerHTML = `
-      <td colspan="7">
+      <td colspan="8">
         <div class="player-grid-container">
           <div class="player-grid">
             ${Object.values(positions).map(pos => `
