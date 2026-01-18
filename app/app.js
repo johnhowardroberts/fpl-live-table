@@ -1110,6 +1110,8 @@ class FPLLiveTable {
     
     // Get score or time
     let scoreContent;
+    let statusIndicator = '';
+    
     if (fixture.started) {
       scoreContent = `
         <div class="score-display">
@@ -1117,9 +1119,13 @@ class FPLLiveTable {
           <span class="score-separator">-</span>
           <span class="away-score">${fixture.team_a_score ?? 0}</span>
         </div>
-        ${isLive ? '<span class="fixture-status-badge live">LIVE</span>' : ''}
-        ${isFinished ? '<span class="fixture-status-badge ft">FT</span>' : ''}
       `;
+      
+      if (isLive) {
+        statusIndicator = '<div class="fixture-status-indicator"><span class="status-live"></span></div>';
+      } else if (isFinished) {
+        statusIndicator = '<div class="fixture-status-indicator"><span class="status-ft">FT</span></div>';
+      }
     } else {
       scoreContent = `<span class="kickoff-time">${kickoffStr}</span>`;
     }
@@ -1136,8 +1142,11 @@ class FPLLiveTable {
           </span>
         </div>
         
-        <div class="fixture-score ${isLive ? 'is-live' : ''}">
-          ${scoreContent}
+        <div class="fixture-score-wrapper">
+          <div class="fixture-score">
+            ${scoreContent}
+          </div>
+          ${statusIndicator}
         </div>
         
         <div class="fixture-team away">
