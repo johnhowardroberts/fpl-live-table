@@ -1132,12 +1132,12 @@ class FPLLiveTable {
       pointsClass = 'points-subbed-out';
     }
     
-    const multiplierBadge = player.multiplier > 1 && player.pointsCount ? 
-      `<span class="multiplier-badge">×${player.multiplier}</span>` : '';
+    // Captain already indicated by C badge and yellow background - no need for x2 label
+    const multiplierBadge = '';
     
-    // Bonus points indicator
+    // Bonus points indicator (e.g., "3BP" instead of "+3")
     const bonusBadge = player.bonusPoints > 0 && player.pointsCount ? 
-      `<span class="bonus-badge">+${player.bonusPoints}</span>` : '';
+      `<span class="bonus-badge">${player.bonusPoints}BP</span>` : '';
     
     // Auto-sub indicator
     const subBadge = player.wasSubbedOut ? '<span class="sub-badge sub-out">↓</span>' :

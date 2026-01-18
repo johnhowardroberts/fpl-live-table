@@ -1044,12 +1044,6 @@ a:hover {
   border-radius: 2px;
   margin-left: 2px;
   font-weight: 700;
-  animation: pulse-bonus 2s ease-in-out infinite;
-}
-
-@keyframes pulse-bonus {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.7; }
 }
 
 /* Bench Section */
