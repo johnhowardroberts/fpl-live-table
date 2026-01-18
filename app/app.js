@@ -593,13 +593,14 @@ class FPLLiveTable {
       
       // Get base points from API
       const basePoints = liveElement?.stats?.total_points || 0;
-      
-      // Use API bonus if available, otherwise use our calculated provisional bonus
       const apiBonus = liveElement?.stats?.bonus || 0;
-      const calcBonus = provisionalBonus.get(pick.element) || 0;
-      const bonusPoints = apiBonus > 0 ? apiBonus : calcBonus;
       
-      const points = basePoints + bonusPoints;
+      // IMPORTANT: Once FPL confirms bonus, total_points ALREADY includes it
+      // So we only add our provisional calculation when API bonus is still 0
+      const calcBonus = provisionalBonus.get(pick.element) || 0;
+      const bonusToAdd = apiBonus > 0 ? 0 : calcBonus; // Don't double-count official bonus
+      
+      const points = basePoints + bonusToAdd;
       
       if (hasPlayed) {
         played++;
@@ -651,13 +652,17 @@ class FPLLiveTable {
       
       // Get base points from API
       const basePoints = liveElement?.stats?.total_points || 0;
-      
-      // Use API bonus if available, otherwise use our calculated provisional bonus
       const apiBonus = liveElement?.stats?.bonus || 0;
+      
+      // IMPORTANT: Once FPL confirms bonus, total_points ALREADY includes it
+      // So we only add our provisional calculation when API bonus is still 0
       const calcBonus = provisionalBonus.get(pick.element) || 0;
+      const bonusToAdd = apiBonus > 0 ? 0 : calcBonus; // Don't double-count official bonus
+      
+      // For display: show apiBonus if confirmed, otherwise show calculated
       const bonusPoints = apiBonus > 0 ? apiBonus : calcBonus;
       
-      const points = basePoints + bonusPoints;
+      const points = basePoints + bonusToAdd;
       const minutes = liveElement?.stats?.minutes || 0;
       const hasPlayed = minutes > 0;
       
