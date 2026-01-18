@@ -594,6 +594,142 @@ class FPLLiveTable {
     return bonusMap;
   }
 
+  // Calculate auto-subs locally when FPL API hasn't processed them yet
+  calculateLocalAutoSubs(picks) {
+    if (!picks?.picks || !this.liveData?.elements || !this.fixtures || !this.players) {
+      return [];
+    }
+    
+    // If FPL has already processed auto-subs, use those
+    if (picks.automatic_subs && picks.automatic_subs.length > 0) {
+      return picks.automatic_subs;
+    }
+    
+    const autoSubs = [];
+    const starting = picks.picks.slice(0, 11);
+    const bench = picks.picks.slice(11); // Positions 12-15 (indices 0-3 in bench array)
+    
+    // Track which bench players have been used
+    const usedBenchPlayers = new Set();
+    
+    // Track current formation counts (after subs)
+    // Position: 1=GK, 2=DEF, 3=MID, 4=FWD
+    const formationCount = { 1: 0, 2: 0, 3: 0, 4: 0 };
+    
+    // Count current playing formation (players with minutes > 0 or fixture not finished)
+    starting.forEach(pick => {
+      const player = this.players.get(pick.element);
+      const liveElement = this.liveData.elements.find(e => e.id === pick.element);
+      const minutes = liveElement?.stats?.minutes || 0;
+      
+      // Check if fixture is finished
+      const playerFixture = this.fixtures.find(f => 
+        f.event === this.currentGameweek && 
+        player && (f.team_h === player.team || f.team_a === player.team)
+      );
+      const fixtureFinished = playerFixture?.finished || playerFixture?.finished_provisional;
+      
+      // Player needs sub if: 0 minutes AND fixture finished
+      const needsSub = minutes === 0 && fixtureFinished;
+      
+      if (!needsSub && player) {
+        formationCount[player.element_type] = (formationCount[player.element_type] || 0) + 1;
+      }
+    });
+    
+    // Process each starting player that needs a sub
+    for (const pick of starting) {
+      const player = this.players.get(pick.element);
+      if (!player) continue;
+      
+      const liveElement = this.liveData.elements.find(e => e.id === pick.element);
+      const minutes = liveElement?.stats?.minutes || 0;
+      
+      // Check if fixture is finished
+      const playerFixture = this.fixtures.find(f => 
+        f.event === this.currentGameweek && 
+        (f.team_h === player.team || f.team_a === player.team)
+      );
+      const fixtureFinished = playerFixture?.finished || playerFixture?.finished_provisional;
+      
+      // Skip if player doesn't need a sub
+      if (minutes > 0 || !fixtureFinished) continue;
+      
+      // Find a valid bench replacement
+      for (let i = 0; i < bench.length; i++) {
+        const benchPick = bench[i];
+        if (usedBenchPlayers.has(benchPick.element)) continue;
+        
+        const benchPlayer = this.players.get(benchPick.element);
+        if (!benchPlayer) continue;
+        
+        // Check if bench player's fixture has started (they need to have data)
+        const benchFixture = this.fixtures.find(f => 
+          f.event === this.currentGameweek && 
+          (f.team_h === benchPlayer.team || f.team_a === benchPlayer.team)
+        );
+        const benchFixtureStarted = benchFixture?.started;
+        
+        // Bench player must have their fixture started to be eligible
+        if (!benchFixtureStarted) continue;
+        
+        // GK Rule: GK can only be replaced by GK (and vice versa)
+        const isStartingGK = player.element_type === 1;
+        const isBenchGK = benchPlayer.element_type === 1;
+        
+        if (isStartingGK && !isBenchGK) continue; // Starting GK needs bench GK
+        if (!isStartingGK && isBenchGK) continue; // Outfield can't use bench GK
+        
+        // Formation check for outfield players
+        if (!isStartingGK) {
+          // Check if adding this bench player would result in a valid formation
+          // Current formationCount = players who ARE playing (not needing subs)
+          // We need to check: after adding benchPlayer, do we meet minimums?
+          
+          const newFormation = { ...formationCount };
+          newFormation[benchPlayer.element_type] = (newFormation[benchPlayer.element_type] || 0) + 1;
+          
+          // Minimum requirements: 3 DEF, (no explicit min MID/FWD but implied 1 each)
+          // The key rule: If we're below 3 DEF, we can ONLY accept a DEF
+          if (formationCount[2] < 3 && benchPlayer.element_type !== 2) {
+            continue; // Need a DEF to reach minimum, this isn't one
+          }
+          
+          // Also check we don't exceed maximums (5 MID, 3 FWD typically)
+          // These are rarely hit but let's be safe
+          if (newFormation[3] > 5) continue; // Max 5 MID
+          if (newFormation[4] > 3) continue; // Max 3 FWD
+        }
+        
+        // Valid sub found!
+        const subOut = this.players.get(pick.element);
+        const subIn = benchPlayer;
+        console.log(`[Auto-Sub] ${subOut?.web_name || 'Unknown'} (0 mins) → ${subIn?.web_name || 'Unknown'}`);
+        
+        autoSubs.push({
+          element_in: benchPick.element,
+          element_out: pick.element,
+          entry: picks.entry,
+          event: this.currentGameweek
+        });
+        
+        // Update tracking
+        usedBenchPlayers.add(benchPick.element);
+        
+        // Update formation count with the new player
+        formationCount[benchPlayer.element_type] = (formationCount[benchPlayer.element_type] || 0) + 1;
+        
+        break; // Move to next starting player that needs sub
+      }
+    }
+    
+    if (autoSubs.length > 0) {
+      console.log(`[Auto-Sub] Calculated ${autoSubs.length} local auto-sub(s) for entry ${picks.entry}`);
+    }
+    
+    return autoSubs;
+  }
+
   calculateLiveInfo(picks) {
     if (!picks?.picks || !this.liveData?.elements) {
       return { played: 0, captainName: null, captainPlayed: false, bonusPoints: 0, activeChip: null, livePoints: 0 };
@@ -611,8 +747,8 @@ class FPLLiveTable {
     const activeChip = picks.active_chip; // 'bboost', '3xc', 'freehit', 'wildcard'
     const isBenchBoost = activeChip === 'bboost';
     
-    // Process automatic substitutions
-    const autoSubs = picks.automatic_subs || [];
+    // Process automatic substitutions - use local calculation if API hasn't processed yet
+    const autoSubs = this.calculateLocalAutoSubs(picks);
     const subbedOut = new Set(autoSubs.map(sub => sub.element_out));
     const subbedIn = new Set(autoSubs.map(sub => sub.element_in));
     
@@ -689,8 +825,8 @@ class FPLLiveTable {
     // Calculate provisional bonus from BPS
     const provisionalBonus = this.calculateProvisionalBonus();
     
-    // Process automatic substitutions
-    const autoSubs = picks.automatic_subs || [];
+    // Process automatic substitutions - use local calculation if API hasn't processed yet
+    const autoSubs = this.calculateLocalAutoSubs(picks);
     const subbedOutMap = new Map(autoSubs.map(sub => [sub.element_out, sub.element_in]));
     const subbedInSet = new Set(autoSubs.map(sub => sub.element_in));
     
