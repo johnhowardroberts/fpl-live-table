@@ -1094,6 +1094,334 @@ a:hover {
   text-decoration: line-through;
 }
 
+/* ============================================
+   Fixtures Section
+   ============================================ */
+
+.fixtures-section {
+  margin-top: var(--space-xl);
+}
+
+.fixtures-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+  text-align: center;
+  margin-bottom: var(--space-md);
+}
+
+.fixtures-grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+/* Fixture Card */
+.fixture-card {
+  background: var(--color-surface);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  transition: all var(--transition-fast);
+}
+
+.fixture-card:hover {
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.fixture-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-md);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.fixture-header:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.fixture-card.expanded .fixture-header {
+  background: rgba(233, 0, 82, 0.1);
+}
+
+.fixture-team {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.fixture-team.home {
+  justify-content: flex-end;
+  text-align: right;
+}
+
+.fixture-team.away {
+  justify-content: flex-start;
+  text-align: left;
+}
+
+.team-badge {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.5rem;
+  font-weight: 700;
+  color: white;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+  flex-shrink: 0;
+}
+
+.team-name-fixture {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--color-text);
+  white-space: nowrap;
+}
+
+/* Score Display */
+.fixture-score {
+  min-width: 100px;
+  text-align: center;
+  position: relative;
+}
+
+.score-display {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-xs);
+  font-family: var(--font-mono);
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.score-display .home-score,
+.score-display .away-score {
+  min-width: 24px;
+}
+
+.score-display .score-separator {
+  color: var(--color-text-dim);
+}
+
+/* Live Indicator on Score */
+.fixture-score.is-live::before {
+  content: '';
+  position: absolute;
+  top: -4px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60px;
+  height: 2px;
+  background: #22c55e;
+  border-radius: 2px;
+  animation: pulse-line 1.5s ease-in-out infinite;
+}
+
+.fixture-score.is-live::after {
+  content: '';
+  position: absolute;
+  bottom: -4px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60px;
+  height: 2px;
+  background: #22c55e;
+  border-radius: 2px;
+  animation: pulse-line 1.5s ease-in-out infinite;
+}
+
+.fixture-score.is-live .score-display {
+  color: #22c55e;
+  text-shadow: 0 0 8px rgba(34, 197, 94, 0.4);
+}
+
+@keyframes pulse-line {
+  0%, 100% { 
+    opacity: 1;
+    box-shadow: 0 0 4px rgba(34, 197, 94, 0.6);
+  }
+  50% { 
+    opacity: 0.6;
+    box-shadow: 0 0 12px rgba(34, 197, 94, 0.8);
+  }
+}
+
+/* Kickoff Time */
+.kickoff-time {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--color-text-dim);
+}
+
+/* Fixture Status Badge */
+.fixture-status-badge {
+  font-size: 0.5rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 3px;
+  letter-spacing: 0.05em;
+}
+
+.fixture-status-badge.live {
+  background: #22c55e;
+  color: white;
+  animation: pulse-badge 1.5s ease-in-out infinite;
+}
+
+.fixture-status-badge.ft {
+  background: var(--color-surface-3);
+  color: var(--color-text-muted);
+}
+
+@keyframes pulse-badge {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+/* Expand Arrow */
+.fixture-expand {
+  color: var(--color-text-dim);
+  font-size: 0.625rem;
+  margin-left: var(--space-sm);
+  transition: transform var(--transition-fast);
+}
+
+.fixture-card.expanded .fixture-expand {
+  transform: rotate(180deg);
+}
+
+/* Fixture Details (Accordion Content) */
+.fixture-details {
+  display: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  background: var(--color-surface-2);
+}
+
+.fixture-card.expanded .fixture-details {
+  display: block;
+  animation: slideDown 0.2s ease;
+}
+
+.details-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.details-column {
+  background: var(--color-surface-2);
+  padding: var(--space-md);
+}
+
+.details-column-title {
+  font-size: 0.625rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--color-text-dim);
+  margin-bottom: var(--space-sm);
+  text-align: center;
+}
+
+.details-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.details-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  padding: var(--space-xs);
+  background: var(--color-surface);
+  border-radius: var(--radius-sm);
+}
+
+.details-item .player-name-detail {
+  color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100px;
+}
+
+.details-item .event-icon {
+  font-size: 0.625rem;
+  margin-left: var(--space-xs);
+}
+
+.details-item .bonus-value {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: #fbbf24;
+  background: rgba(251, 191, 36, 0.15);
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+.details-item .team-indicator {
+  font-size: 0.5rem;
+  padding: 1px 4px;
+  border-radius: 2px;
+  color: white;
+  text-shadow: 0 1px 1px rgba(0,0,0,0.5);
+  margin-right: var(--space-xs);
+}
+
+.no-events {
+  color: var(--color-text-dim);
+  font-size: 0.7rem;
+  text-align: center;
+  padding: var(--space-sm);
+}
+
+/* Responsive Fixtures */
+@media (max-width: 600px) {
+  .fixture-header {
+    padding: var(--space-sm);
+  }
+  
+  .team-badge {
+    width: 22px;
+    height: 22px;
+    font-size: 0.4rem;
+  }
+  
+  .team-name-fixture {
+    font-size: 0.7rem;
+  }
+  
+  .score-display {
+    font-size: 1rem;
+  }
+  
+  .fixture-score {
+    min-width: 70px;
+  }
+  
+  .details-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .details-column {
+    padding: var(--space-sm);
+  }
+}
+
 /* Responsive Player Grid */
 @media (max-width: 768px) {
   .player-grid-container {

@@ -15,6 +15,7 @@ class FPLLiveTable {
     this.currentGameweek = 1;
     this.gameweekDates = new Map();
     this.expandedRows = new Set(); // Track which rows are expanded
+    this.expandedFixtures = new Set(); // Track which fixtures are expanded
     
     // Cache
     this.cache = new Map();
@@ -61,6 +62,9 @@ class FPLLiveTable {
       // States
       loadingIndicator: document.getElementById('loadingIndicator'),
       errorMessage: document.getElementById('errorMessage'),
+      
+      // Fixtures
+      fixturesGrid: document.getElementById('fixturesGrid'),
     };
   }
 
@@ -247,6 +251,7 @@ class FPLLiveTable {
       // Update UI
       this.updateLeagueInfo(standings);
       this.renderLeaderboard();
+      this.renderFixtures();
       
       // Show leaderboard
       this.el.setupSection.style.display = 'none';
@@ -299,6 +304,7 @@ class FPLLiveTable {
       
       // Re-render
       this.renderLeaderboard();
+      this.renderFixtures();
       this.updateTimestamp();
       
     } catch (error) {
@@ -1061,6 +1067,251 @@ class FPLLiveTable {
     const div = document.createElement('div');
     div.textContent = str;
     return div.innerHTML;
+  }
+
+  // ============================================
+  // Fixtures Rendering
+  // ============================================
+
+  renderFixtures() {
+    if (!this.fixtures || !this.el.fixturesGrid) return;
+    
+    // Get current gameweek fixtures
+    const gwFixtures = this.fixtures
+      .filter(f => f.event === this.currentGameweek)
+      .sort((a, b) => new Date(a.kickoff_time) - new Date(b.kickoff_time));
+    
+    this.el.fixturesGrid.innerHTML = '';
+    
+    gwFixtures.forEach(fixture => {
+      const card = this.createFixtureCard(fixture);
+      this.el.fixturesGrid.appendChild(card);
+    });
+  }
+
+  createFixtureCard(fixture) {
+    const card = document.createElement('div');
+    card.className = 'fixture-card';
+    card.dataset.fixtureId = fixture.id;
+    
+    const isExpanded = this.expandedFixtures.has(fixture.id);
+    if (isExpanded) card.classList.add('expanded');
+    
+    const homeTeam = this.teams.get(fixture.team_h);
+    const awayTeam = this.teams.get(fixture.team_a);
+    
+    // Determine fixture status
+    const isLive = fixture.started && !fixture.finished && !fixture.finished_provisional;
+    const isFinished = fixture.finished || fixture.finished_provisional;
+    
+    // Format kickoff time
+    const kickoff = fixture.kickoff_time ? new Date(fixture.kickoff_time) : null;
+    const kickoffStr = kickoff ? kickoff.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '--:--';
+    
+    // Get score or time
+    let scoreContent;
+    if (fixture.started) {
+      scoreContent = `
+        <div class="score-display">
+          <span class="home-score">${fixture.team_h_score ?? 0}</span>
+          <span class="score-separator">-</span>
+          <span class="away-score">${fixture.team_a_score ?? 0}</span>
+        </div>
+        ${isLive ? '<span class="fixture-status-badge live">LIVE</span>' : ''}
+        ${isFinished ? '<span class="fixture-status-badge ft">FT</span>' : ''}
+      `;
+    } else {
+      scoreContent = `<span class="kickoff-time">${kickoffStr}</span>`;
+    }
+    
+    // Get fixture events (goals, assists, bonus)
+    const events = this.getFixtureEvents(fixture);
+    
+    card.innerHTML = `
+      <div class="fixture-header">
+        <div class="fixture-team home">
+          <span class="team-name-fixture">${homeTeam?.short_name || 'HOME'}</span>
+          <span class="team-badge" style="background-color: ${this.getTeamColor(homeTeam?.code)}">
+            ${homeTeam?.short_name?.substring(0, 3) || 'HOM'}
+          </span>
+        </div>
+        
+        <div class="fixture-score ${isLive ? 'is-live' : ''}">
+          ${scoreContent}
+        </div>
+        
+        <div class="fixture-team away">
+          <span class="team-badge" style="background-color: ${this.getTeamColor(awayTeam?.code)}">
+            ${awayTeam?.short_name?.substring(0, 3) || 'AWY'}
+          </span>
+          <span class="team-name-fixture">${awayTeam?.short_name || 'AWAY'}</span>
+        </div>
+        
+        <span class="fixture-expand">▼</span>
+      </div>
+      
+      <div class="fixture-details">
+        <div class="details-grid">
+          <div class="details-column">
+            <div class="details-column-title">⚽ Goals</div>
+            <div class="details-list">
+              ${events.goals.length > 0 ? events.goals.map(g => `
+                <div class="details-item">
+                  <span class="team-indicator" style="background-color: ${this.getTeamColor(g.teamCode)}">${g.teamName}</span>
+                  <span class="player-name-detail">${g.name}</span>
+                  <span class="event-icon">${g.count > 1 ? `×${g.count}` : ''}</span>
+                </div>
+              `).join('') : '<div class="no-events">No goals</div>'}
+            </div>
+          </div>
+          
+          <div class="details-column">
+            <div class="details-column-title">🅰️ Assists</div>
+            <div class="details-list">
+              ${events.assists.length > 0 ? events.assists.map(a => `
+                <div class="details-item">
+                  <span class="team-indicator" style="background-color: ${this.getTeamColor(a.teamCode)}">${a.teamName}</span>
+                  <span class="player-name-detail">${a.name}</span>
+                  <span class="event-icon">${a.count > 1 ? `×${a.count}` : ''}</span>
+                </div>
+              `).join('') : '<div class="no-events">No assists</div>'}
+            </div>
+          </div>
+          
+          <div class="details-column">
+            <div class="details-column-title">⭐ Bonus${events.bonusConfirmed ? '' : ' (Proj)'}</div>
+            <div class="details-list">
+              ${events.bonus.length > 0 ? events.bonus.map(b => `
+                <div class="details-item">
+                  <span class="team-indicator" style="background-color: ${this.getTeamColor(b.teamCode)}">${b.teamName}</span>
+                  <span class="player-name-detail">${b.name}</span>
+                  <span class="bonus-value">+${b.bonus}</span>
+                </div>
+              `).join('') : '<div class="no-events">No bonus</div>'}
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+    
+    // Add click handler to toggle expansion
+    const header = card.querySelector('.fixture-header');
+    header.addEventListener('click', () => this.toggleFixtureExpansion(fixture.id));
+    
+    return card;
+  }
+
+  getFixtureEvents(fixture) {
+    const events = {
+      goals: [],
+      assists: [],
+      bonus: [],
+      bonusConfirmed: false
+    };
+    
+    if (!this.liveData?.elements || !fixture.started) return events;
+    
+    // Find all players in this fixture
+    const homeTeam = this.teams.get(fixture.team_h);
+    const awayTeam = this.teams.get(fixture.team_a);
+    
+    const playersInFixture = [];
+    
+    this.liveData.elements.forEach(element => {
+      const player = this.players.get(element.id);
+      if (!player) return;
+      
+      if (player.team === fixture.team_h || player.team === fixture.team_a) {
+        const team = player.team === fixture.team_h ? homeTeam : awayTeam;
+        const stats = element.stats || {};
+        
+        // Goals scored
+        if (stats.goals_scored > 0) {
+          events.goals.push({
+            id: player.id,
+            name: player.web_name,
+            teamName: team?.short_name || '???',
+            teamCode: team?.code,
+            count: stats.goals_scored
+          });
+        }
+        
+        // Assists
+        if (stats.assists > 0) {
+          events.assists.push({
+            id: player.id,
+            name: player.web_name,
+            teamName: team?.short_name || '???',
+            teamCode: team?.code,
+            count: stats.assists
+          });
+        }
+        
+        // Collect BPS for bonus calculation
+        if (stats.minutes > 0) {
+          playersInFixture.push({
+            id: player.id,
+            name: player.web_name,
+            teamName: team?.short_name || '???',
+            teamCode: team?.code,
+            bps: stats.bps || 0,
+            apiBonus: stats.bonus || 0
+          });
+        }
+      }
+    });
+    
+    // Calculate bonus points
+    // Check if any player has official bonus confirmed
+    const hasOfficialBonus = playersInFixture.some(p => p.apiBonus > 0);
+    events.bonusConfirmed = hasOfficialBonus;
+    
+    if (hasOfficialBonus) {
+      // Use official bonus
+      events.bonus = playersInFixture
+        .filter(p => p.apiBonus > 0)
+        .sort((a, b) => b.apiBonus - a.apiBonus)
+        .map(p => ({ ...p, bonus: p.apiBonus }));
+    } else if (playersInFixture.length > 0) {
+      // Calculate provisional from BPS
+      playersInFixture.sort((a, b) => b.bps - a.bps);
+      
+      let position = 1;
+      let i = 0;
+      
+      while (i < playersInFixture.length && position <= 3) {
+        const currentBps = playersInFixture[i].bps;
+        const tiedPlayers = [];
+        
+        while (i < playersInFixture.length && playersInFixture[i].bps === currentBps) {
+          tiedPlayers.push(playersInFixture[i]);
+          i++;
+        }
+        
+        const bonus = 4 - position;
+        tiedPlayers.forEach(p => {
+          events.bonus.push({ ...p, bonus });
+        });
+        
+        position += tiedPlayers.length;
+      }
+    }
+    
+    // Sort events
+    events.goals.sort((a, b) => b.count - a.count);
+    events.assists.sort((a, b) => b.count - a.count);
+    events.bonus.sort((a, b) => b.bonus - a.bonus);
+    
+    return events;
+  }
+
+  toggleFixtureExpansion(fixtureId) {
+    if (this.expandedFixtures.has(fixtureId)) {
+      this.expandedFixtures.delete(fixtureId);
+    } else {
+      this.expandedFixtures.add(fixtureId);
+    }
+    this.renderFixtures();
   }
 
   // ============================================
