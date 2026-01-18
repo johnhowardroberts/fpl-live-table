@@ -1293,9 +1293,35 @@ class FPLLiveTable {
     
     this.el.fixturesGrid.innerHTML = '';
     
+    // Group fixtures by day
+    const fixturesByDay = new Map();
     gwFixtures.forEach(fixture => {
-      const card = this.createFixtureCard(fixture);
-      this.el.fixturesGrid.appendChild(card);
+      const kickoff = new Date(fixture.kickoff_time);
+      const dayKey = kickoff.toLocaleDateString('en-GB', { 
+        weekday: 'long', 
+        day: 'numeric', 
+        month: 'short' 
+      });
+      
+      if (!fixturesByDay.has(dayKey)) {
+        fixturesByDay.set(dayKey, []);
+      }
+      fixturesByDay.get(dayKey).push(fixture);
+    });
+    
+    // Render fixtures grouped by day
+    fixturesByDay.forEach((fixtures, dayLabel) => {
+      // Add day header
+      const dayHeader = document.createElement('div');
+      dayHeader.className = 'fixtures-day-header';
+      dayHeader.textContent = dayLabel;
+      this.el.fixturesGrid.appendChild(dayHeader);
+      
+      // Add fixtures for this day
+      fixtures.forEach(fixture => {
+        const card = this.createFixtureCard(fixture);
+        this.el.fixturesGrid.appendChild(card);
+      });
     });
   }
 

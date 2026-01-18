@@ -1161,6 +1161,22 @@ a:hover {
   gap: var(--space-sm);
 }
 
+/* Fixtures Day Header */
+.fixtures-day-header {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: var(--space-md) 0 var(--space-xs) 0;
+  margin-top: var(--space-sm);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.fixtures-day-header:first-child {
+  margin-top: 0;
+}
+
 /* Fixture Card */
 .fixture-card {
   background: var(--color-surface);
