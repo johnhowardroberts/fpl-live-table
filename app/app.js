@@ -702,9 +702,6 @@ class FPLLiveTable {
         }
         
         // Valid sub found!
-        const subOut = this.players.get(pick.element);
-        const subIn = benchPlayer;
-        console.log(`[Auto-Sub] ${subOut?.web_name || 'Unknown'} (0 mins) → ${subIn?.web_name || 'Unknown'}`);
         
         autoSubs.push({
           element_in: benchPick.element,
@@ -721,10 +718,6 @@ class FPLLiveTable {
         
         break; // Move to next starting player that needs sub
       }
-    }
-    
-    if (autoSubs.length > 0) {
-      console.log(`[Auto-Sub] Calculated ${autoSubs.length} local auto-sub(s) for entry ${picks.entry}`);
     }
     
     return autoSubs;
@@ -790,7 +783,9 @@ class FPLLiveTable {
       if (hasPlayed) {
         played++;
         // Apply multiplier (1 for normal, 2 for captain, 3 for triple captain)
-        livePoints += points * pick.multiplier;
+        // For subbed-in players, use multiplier of 1 (bench players have multiplier 0 in API)
+        const effectiveMultiplier = pick.wasSubbedIn ? 1 : pick.multiplier;
+        livePoints += points * effectiveMultiplier;
       }
       
       // Check if captain
@@ -862,7 +857,9 @@ class FPLLiveTable {
                           (isBenchBoost && index >= 11);
       
       // Calculate effective points (captain gets 2x, triple captain 3x)
-      let effectivePoints = pointsCount ? points * pick.multiplier : 0;
+      // For subbed-in players, use multiplier of 1 (bench players have multiplier 0 in API)
+      const effectiveMultiplier = wasSubbedIn ? 1 : pick.multiplier;
+      let effectivePoints = pointsCount ? points * effectiveMultiplier : 0;
       
       // Get fixture status for this player's team
       let fixtureStatus = 'upcoming'; // 'upcoming', 'playing', 'finished'
@@ -889,7 +886,7 @@ class FPLLiveTable {
         points: points,
         bonusPoints: bonusPoints,
         effectivePoints: effectivePoints,
-        multiplier: pick.multiplier,
+        multiplier: effectiveMultiplier,
         isCaptain: pick.is_captain,
         isViceCaptain: pick.is_vice_captain,
         hasPlayed: hasPlayed,
