@@ -1425,6 +1425,19 @@ class FPLLiveTable {
           </div>
           
           <div class="details-column">
+            <div class="details-column-title">🔴 Own Goals</div>
+            <div class="details-list">
+              ${events.ownGoals.length > 0 ? events.ownGoals.map(og => `
+                <div class="details-item">
+                  <span class="team-indicator" style="background-color: ${this.getTeamColor(og.teamCode)}; color: ${this.getTeamTextColor(og.teamCode)}">${og.teamName}</span>
+                  <span class="player-name-detail">${og.name}</span>
+                  <span class="event-icon">${og.count > 1 ? `×${og.count}` : ''}</span>
+                </div>
+              `).join('') : '<div class="no-events">No own goals</div>'}
+            </div>
+          </div>
+          
+          <div class="details-column">
             <div class="details-column-title">🟨 Cards</div>
             <div class="details-list">
               ${events.cards.length > 0 ? events.cards.map(c => `
@@ -1463,6 +1476,7 @@ class FPLLiveTable {
   getFixtureEvents(fixture) {
     const events = {
       goals: [],
+      ownGoals: [],
       assists: [],
       cards: [],
       bonus: [],
@@ -1493,6 +1507,17 @@ class FPLLiveTable {
             teamName: team?.short_name || '???',
             teamCode: team?.code,
             count: stats.goals_scored
+          });
+        }
+        
+        // Own goals
+        if (stats.own_goals > 0) {
+          events.ownGoals.push({
+            id: player.id,
+            name: player.web_name,
+            teamName: team?.short_name || '???',
+            teamCode: team?.code,
+            count: stats.own_goals
           });
         }
         
@@ -1583,6 +1608,7 @@ class FPLLiveTable {
     
     // Sort events
     events.goals.sort((a, b) => b.count - a.count);
+    events.ownGoals.sort((a, b) => b.count - a.count);
     events.assists.sort((a, b) => b.count - a.count);
     // Sort cards: yellow cards first, then red
     events.cards.sort((a, b) => {
