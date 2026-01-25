@@ -280,6 +280,7 @@ class FPLLiveTable {
       this.cache.delete(`live-${this.currentGameweek}`);
       this.cache.delete(`standings-${this.leagueId}`);
       this.cache.delete('event-status');
+      this.cache.delete('fixtures'); // Clear fixtures cache to get live scores
       
       // Clear manager picks cache
       if (this.standings?.standings?.results) {
@@ -288,16 +289,18 @@ class FPLLiveTable {
         });
       }
       
-      // Re-fetch live data
-      const [eventStatus, standings, liveData] = await Promise.all([
+      // Re-fetch live data including fixtures for live scores
+      const [eventStatus, standings, liveData, fixtures] = await Promise.all([
         this.fetchEventStatus(),
         this.fetchLeagueStandings(this.leagueId),
         this.fetchLiveData(this.currentGameweek),
+        this.fetchFixtures(), // Re-fetch fixtures for live match scores
       ]);
       
       this.currentGameweek = this.getCurrentGameweek(eventStatus, this.events);
       this.liveData = liveData;
       this.standings = standings;
+      this.fixtures = fixtures; // Update fixtures with live scores
       
       // Re-fetch manager data
       await this.fetchManagerData(standings.standings.results);
@@ -1424,18 +1427,20 @@ class FPLLiveTable {
             </div>
           </div>
           
+          ${events.ownGoals.length > 0 ? `
           <div class="details-column">
             <div class="details-column-title">🔴 Own Goals</div>
             <div class="details-list">
-              ${events.ownGoals.length > 0 ? events.ownGoals.map(og => `
+              ${events.ownGoals.map(og => `
                 <div class="details-item">
                   <span class="team-indicator" style="background-color: ${this.getTeamColor(og.teamCode)}; color: ${this.getTeamTextColor(og.teamCode)}">${og.teamName}</span>
                   <span class="player-name-detail">${og.name}</span>
                   <span class="event-icon">${og.count > 1 ? `×${og.count}` : ''}</span>
                 </div>
-              `).join('') : '<div class="no-events">No own goals</div>'}
+              `).join('')}
             </div>
           </div>
+          ` : ''}
           
           <div class="details-column">
             <div class="details-column-title">🟨 Cards</div>
