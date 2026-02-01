@@ -377,23 +377,30 @@ class FPLLiveTable {
 
   buildMonthOptions() {
     const months = new Map();
-    const now = new Date();
     
     // Add months from gameweeks
     this.gameweekDates.forEach((date, gw) => {
-      const key = `${date.getFullYear()}-${date.getMonth()}`;
+      const key = `${date.getFullYear()}-${String(date.getMonth()).padStart(2, '0')}`;
       if (!months.has(key)) {
         months.set(key, date);
       }
     });
     
-    // Sort chronologically
+    // Sort chronologically (keys are now YYYY-MM format for correct sorting)
     this.availableMonths = Array.from(months.keys()).sort();
     
-    // Set current month as default
-    const currentKey = `${now.getFullYear()}-${now.getMonth()}`;
-    this.currentMonth = this.availableMonths.includes(currentKey) 
-      ? currentKey 
+    // Default to the month containing the CURRENT GAMEWEEK (not calendar month)
+    // This ensures the monthly leaderboard shows the active competition
+    const currentGwDate = this.gameweekDates.get(this.currentGameweek);
+    let defaultMonth = null;
+    
+    if (currentGwDate) {
+      defaultMonth = `${currentGwDate.getFullYear()}-${String(currentGwDate.getMonth()).padStart(2, '0')}`;
+    }
+    
+    // Fall back to most recent month if current GW month not found
+    this.currentMonth = (defaultMonth && this.availableMonths.includes(defaultMonth))
+      ? defaultMonth
       : this.availableMonths[this.availableMonths.length - 1];
     
     // Populate dropdown (month name only, no year)
@@ -414,6 +421,11 @@ class FPLLiveTable {
   }
 
   getGameweeksForMonth(monthKey) {
+    if (!monthKey) {
+      console.warn('[FPL] getGameweeksForMonth called with empty monthKey');
+      return [];
+    }
+    
     const [year, month] = monthKey.split('-').map(Number);
     const gameweeks = [];
     
